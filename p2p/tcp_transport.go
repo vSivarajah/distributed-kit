@@ -1,20 +1,16 @@
 package p2p
 
 import (
+	"encoding/gob"
 	"fmt"
 	"net"
 	"sync"
 )
 
-type Message struct {
-	payload []byte
-}
-
 // TCPPeer represents the remote node over a TCP establish connection
 type TCPPeer struct {
 	//conn is the underlying connection of the peer
 	conn net.Conn
-
 	// if we dial and retrieve a conn. outbound =true
 	// if we accept and retrieve a connection. outbound=false
 	outbound bool
@@ -35,6 +31,8 @@ type TCPTransportOpts struct {
 type TCPTransport struct {
 	TCPTransportOpts
 	listener net.Listener
+	AddPeer  chan *TCPPeer
+	DelPeer  chan *TCPPeer
 
 	//mu mutex protects the field stated below
 	//which in this case map of peers
@@ -69,29 +67,27 @@ func (t *TCPTransport) startAcceptLoop() {
 			fmt.Printf("TCP accept error: %s\n", err)
 			continue
 		}
-		fmt.Printf("new incoming connection %+v\n", conn)
-		t.mu.Lock()
-		t.peers[conn.RemoteAddr().String()] = conn
-		t.mu.Unlock()
 
-		go t.handleConn(conn)
+		peer := &TCPPeer{
+			conn:     conn,
+			outbound: false,
+		}
+
+		t.AddPeer <- peer
+
+		go peer.handleConn(t.msgCh)
 	}
 }
 
-func (t *TCPTransport) handleConn(conn net.Conn) {
-
-	msg := &Message{}
+func (t *TCPPeer) handleConn(msgCh chan *Message) {
 	for {
-		if err := t.Decoder.Decode(conn, msg); err != nil {
+		msg := new(Message)
+
+		if err := gob.NewDecoder(t.conn).Decode(msg); err != nil {
 			fmt.Printf("TCP error: %s\n", err)
 			break
 		}
-		t.mu.RLock()
-		t.msgCh <- msg
-		fmt.Println(len(t.peers))
-		t.mu.RUnlock()
+		msgCh <- msg
 	}
-	//removing peer from peers list
-	delete(t.peers, conn.RemoteAddr().String())
-	conn.Close()
+	t.conn.Close()
 }

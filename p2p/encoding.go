@@ -15,6 +15,7 @@ func (dec GOBDecoder) Decode(r io.Reader, msg *Message) error {
 	return gob.NewDecoder(r).Decode(msg)
 }
 
+/*
 type DefaultDecoder struct{}
 
 func (dec DefaultDecoder) Decode(r io.Reader, msg *Message) error {
@@ -23,7 +24,8 @@ func (dec DefaultDecoder) Decode(r io.Reader, msg *Message) error {
 	if err != nil {
 		return err
 	}
-	msg.payload = buf[:n]
+	msg.Payload = buf[:n]
 
 	return nil
 }
+*/

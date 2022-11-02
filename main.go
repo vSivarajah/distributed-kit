@@ -1,23 +1,27 @@
 package main
 
 import (
-	"log"
+	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vsivarajah/distributed-kit/p2p"
 )
 
 func main() {
 
-	opts := p2p.TCPTransportOpts{
-		ListenAddr: ":3000",
-		Decoder:    p2p.DefaultDecoder{},
-	}
-	tr := p2p.NewTCPTransport(opts)
-	if err := tr.ListenAndAccept(); err != nil {
-		log.Fatal(err)
-	}
-	logrus.Info("starting new transport")
-
+	_ = createServerAndStart(":3000")
+	serverB := createServerAndStart(":4000")
+	serverC := createServerAndStart(":5000")
+	time.Sleep(1 * time.Second)
+	serverB.ConnectTo(":3000")
+	time.Sleep(1 * time.Second)
+	serverC.ConnectTo(":4000")
 	select {}
+}
+
+func createServerAndStart(addr string) *p2p.Server {
+	server := p2p.NewServer(addr)
+	go server.Start()
+	time.Sleep(time.Millisecond * 200)
+
+	return server
 }
